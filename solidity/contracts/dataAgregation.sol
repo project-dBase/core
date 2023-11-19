@@ -52,7 +52,7 @@ contract DataAgregation is FunctionsClient, ConfirmedOwner {
 
     constructor() FunctionsClient(router) ConfirmedOwner(msg.sender) {}
 
-    function updateGAsLimit(uint32 newGasLimit) external onlyOwner {
+    function updateGasLimit(uint32 newGasLimit) external onlyOwner {
         gasLimit = newGasLimit;
     }
 
@@ -78,33 +78,22 @@ contract DataAgregation is FunctionsClient, ConfirmedOwner {
         functionsCode[functionID].isPublic = isPublic;
     }
 
-    string source =
-        "const characterId = args[0];"
-        "const apiResponse = await Functions.makeHttpRequest({"
-        "url: `https://swapi.dev/api/people/${characterId}/`"
-        "});"
-        "if (apiResponse.error) {"
-        "throw Error('Request failed');"
-        "}"
-        "const { data } = apiResponse;"
-        "return Functions.encodeString(data.name);";
-
     function sendRequest(
         uint64 subscriptionId,
-        string[] calldata args
+        string[] calldata args,
+        uint functionsCodeId
     ) external returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
-        req.initializeRequestForInlineJavaScript(source);
+        req.initializeRequestForInlineJavaScript(
+            functionsCode[functionsCodeId].code
+        );
         if (args.length > 0) req.setArgs(args);
 
-        // require(
-        //     functionsCode[functionCodeId].isPublic,
-        //     "Ova funckija nije javno dostupna"
-        // );
-        // require(
-        //     functionsCode[functionCodeId].ownerAddres == msg.sender,
-        //     "Niste vlasnik privatne fun"
-        // );
+        require(
+            !functionsCode[functionsCodeId].isPublic ||
+                functionsCode[functionsCodeId].ownerAddres == msg.sender,
+            "Ova funckija nije javno dostupna"
+        );
 
         s_lastRequestId = _sendRequest(
             req.encodeCBOR(),
