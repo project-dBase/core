@@ -5,56 +5,99 @@ import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
+interface IDataStorageContract {
+    function addNewBloc(string memory blocName, string memory blocSHA) external;
+}
+
 contract DataAgregation is FunctionsClient, ConfirmedOwner {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    //Cahinlink
+    // #region Chainlink
+
     address router = 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0;
     bytes32 donID =
         0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000;
 
+    // #endregion
+
     // gas
     uint32 gasLimit = 300000;
 
-    // functions code
+    // #region Functions Code
     struct FunctionCode {
-        address ownerAddres;
+        address ownerAddress;
         string name;
         string code;
         bool isPublic;
     }
     FunctionCode[] functionsCode;
+    // #endregion
 
-    //***********Trashy code************* */
-    // Custom error type
-    error UnexpectedRequestID(bytes32 requestId);
+    // #region Errors
 
-    // Event to log responses
-    event Response(
-        bytes32 indexed requestId,
-        string character,
-        bytes response,
-        bytes err
+    error PermissionDenied();
+    error FunctionDoesNotExist();
+
+    // #endregion
+
+    // #region Events
+    event NewFunctionCreated(
+        address ownerAddress,
+        string name,
+        string code,
+        bool isPublic
     );
 
-    // State variables to store the last request ID, response, and error
-    bytes32 public s_lastRequestId;
-    bytes public s_lastResponse;
-    bytes public s_lastError;
+    event FunctionUpdated(address owner, bool isPublic, uint functionID);
 
-    string character;
+    event functionRequestSended(
+        bytes32 requestId,
+        uint functionID,
+        address persion
+    );
 
-    function getCharacter() external view returns (string memory) {
-        return character;
-    }
+    event NewBlocSended(string blocName, string blocSHA);
 
-    //*********************************** */
+    event functionRequestExecuted(bytes32 requestId, bytes response, bytes err);
+
+    // #endregion
+
+    // #region Contracts
+    address dataStorageContractAddress;
+    address tokenContractAddress;
+
+    // #endregion
 
     constructor() FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+
+    // #region basic functions
+    function updateDataStorageAddress(address newAddress) external onlyOwner {
+        dataStorageContractAddress = newAddress;
+    }
+
+    function updateTokenContractAddress(address newAddress) external onlyOwner {
+        tokenContractAddress = newAddress;
+    }
+
+    function getGasLimit() external view returns (uint32) {
+        return gasLimit;
+    }
 
     function updateGasLimit(uint32 newGasLimit) external onlyOwner {
         gasLimit = newGasLimit;
     }
+
+    // #endregion
+
+    function sendDataToStorage(string memory name, string memory sha) internal {
+        IDataStorageContract dataStorageContract = IDataStorageContract(
+            dataStorageContractAddress
+        );
+        dataStorageContract.addNewBloc(name, sha);
+        emit NewBlocSended(name, sha);
+    }
+
+    // #region ChainlinkFunctions
 
     function getFunctionsDetails(
         uint functionID
@@ -68,40 +111,49 @@ contract DataAgregation is FunctionsClient, ConfirmedOwner {
         bool isPublic
     ) external {
         functionsCode.push(FunctionCode(msg.sender, name, code, isPublic));
+        emit NewFunctionCreated(msg.sender, name, code, isPublic);
     }
 
     function updateFunctionVisibility(bool isPublic, uint functionID) external {
-        require(
-            functionsCode[functionID].ownerAddres == msg.sender,
-            "Niste vlanika ove funkcije"
-        );
+        if (functionsCode[functionID].ownerAddress != msg.sender) {
+            revert PermissionDenied();
+        }
         functionsCode[functionID].isPublic = isPublic;
+        emit FunctionUpdated(msg.sender, isPublic, functionID);
     }
 
+    // #endregion
+
+    // #region Request/Response
     function sendRequest(
         uint64 subscriptionId,
         string[] calldata args,
         uint functionsCodeId
     ) external returns (bytes32 requestId) {
+        if (functionsCode.length <= functionsCodeId) {
+            revert FunctionDoesNotExist();
+        }
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(
             functionsCode[functionsCodeId].code
         );
         if (args.length > 0) req.setArgs(args);
 
-        require(
-            !functionsCode[functionsCodeId].isPublic ||
-                functionsCode[functionsCodeId].ownerAddres == msg.sender,
-            "Ova funckija nije javno dostupna"
-        );
+        if (
+            !functionsCode[functionsCodeId].isPublic &&
+            functionsCode[functionsCodeId].ownerAddress != msg.sender
+        ) {
+            revert PermissionDenied();
+        }
 
-        s_lastRequestId = _sendRequest(
+        bytes32 RequestId = _sendRequest(
             req.encodeCBOR(),
             subscriptionId,
             gasLimit,
             donID
         );
-        return s_lastRequestId;
+        emit functionRequestSended(RequestId, functionsCodeId, msg.sender);
+        return RequestId;
     }
 
     function fulfillRequest(
@@ -109,15 +161,10 @@ contract DataAgregation is FunctionsClient, ConfirmedOwner {
         bytes memory response,
         bytes memory err
     ) internal override {
-        if (s_lastRequestId != requestId) {
-            revert UnexpectedRequestID(requestId); // Check if request IDs match
-        }
-        // Update the contract's state variables with the response and any errors
-        s_lastResponse = response;
-        character = string(response);
-        s_lastError = err;
+        //TODO: Treba ovdje vratriti bloc name i bloc sha
+        sendDataToStorage(string(response), string(response));
 
-        // Emit an event to log the response
-        emit Response(requestId, character, s_lastResponse, s_lastError);
+        emit functionRequestExecuted(requestId, response, err);
     }
+    // #endregion
 }

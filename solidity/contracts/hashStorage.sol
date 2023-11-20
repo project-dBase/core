@@ -16,10 +16,7 @@ contract dBaseDataProtector {
     //     _;
     // }
 
-    function uploadNewBloc(
-        string memory blocName,
-        string memory blocSHA
-    ) public {
+    function aNewBloc(string memory blocName, string memory blocSHA) public {
         require(
             bytes(getBlocSHA[blocName]).length == 0,
             "Block with this name already exists"
