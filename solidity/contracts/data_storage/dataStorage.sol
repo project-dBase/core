@@ -22,7 +22,10 @@ contract dBaseDataStorage {
         ConfirmedOwner(msg.sender);
     }
 
-    function addNewBloc(string memory blocName, string memory blocSHA) public {
+    function addNewBloc(
+        string memory blocName,
+        string memory blocSHA
+    ) external {
         if (bytes(getBlocSHA[blocName]).length != 0) {
             revert BlocAlreadyExists(blocName, blocSHA);
         }

@@ -1,0 +1,3 @@
+const apiResponse = await Functions.makeHttpRequest({
+    url: 'http://178.79.181.117:80/api/collections/data/records/r2fmq2t2r2dakfi'
+}); if (apiResponse.error) { console.error(apiResponse.error); console.log(apiResponse); throw Error('Request failed'); } const { data } = apiResponse; const result = { text: data.text, isActive: data.isActive, jsonData: JSON.stringify(data.jsonData) }; console.log('API response data:', JSON.stringify(result, null, 2)); return Functions.encodeString(JSON.stringify(result));
