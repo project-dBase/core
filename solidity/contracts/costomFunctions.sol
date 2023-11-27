@@ -1,1 +1,0 @@
-//kod kao za dataagregation, samo zove bilo koji ugovor sa bilo kojom funkcijom
