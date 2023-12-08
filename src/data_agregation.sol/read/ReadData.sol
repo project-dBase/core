@@ -6,6 +6,7 @@ import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/Confir
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
 import "../template_data_recipien";
+import "../base_operators/IBaseOperators.sol";
 
 contract ReadData is ConfirmedOwner, FunctionsClient {
     using FunctionsRequest for FunctionsRequest.Request;
@@ -17,6 +18,7 @@ contract ReadData is ConfirmedOwner, FunctionsClient {
 
     string code;
     address tokenContractAddress;
+    address BaseOperatorsAddress;
 
     event newBlockReaded(bytes32 requestId, bytes response, bytes err);
 
@@ -42,6 +44,14 @@ contract ReadData is ConfirmedOwner, FunctionsClient {
         return tokenContractAddress;
     }
 
+    function updateBaseOperatorsAddress(address newAddress) external onlyOwner {
+        BaseOperatorsAddress = newAddress;
+    }
+
+    function getBaseOperatorsAddress() external view returns (address) {
+        return BaseOperatorsAddress;
+    }
+
     function getGasLimit() external view returns (uint32) {
         return gasLimit;
     }
@@ -65,21 +75,25 @@ contract ReadData is ConfirmedOwner, FunctionsClient {
     struct request {
         string blockName;
         address contractAddress;
+        uint nodeID;
     }
     mapping(bytes32 => request) requests;
 
     function sendRequest(
         uint64 subscriptionId,
+        string memory fieldToSearch,
         string memory blockName,
         string memory baseURL,
-        address contractAddress
+        address contractAddress,
+        uint nodeId
     ) external returns (bytes32 requestId) {
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(code);
 
         string[] memory args = new string[](2);
         args[0] = baseURL;
-        args[1] = blockName;
+        args[1] = fieldToSearch;
+        args[2] = blockName;
         if (args.length > 0) req.setArgs(args);
 
         bytes32 RequestId = _sendRequest(
@@ -88,18 +102,46 @@ contract ReadData is ConfirmedOwner, FunctionsClient {
             gasLimit,
             donID
         );
-        requests[RequestId] = request(blockName, contractAddress);
+        requests[RequestId] = request(blockName, contractAddress, nodeId);
         return RequestId;
     }
 
+    //! ...............................
+    function getDataSafeToContract(
+        string memory fieldToSearch,
+        string memory blockName,
+        address contractAddress
+    ) {
+        uint64 subscriptionId = 1698;
+        IBaseNodes baseOperators = IBaseNodes(BaseOperatorsAddress);
+        string nodeID = baseOperators.getRandomHttpEndpoint();
+        string memory baseURL = baseOperators.checkHttpsEndpoint(nodeID);
+        baseOperators.updateTotalRequests(nodeID);
+        sendRequest(
+            subscriptionId,
+            fieldToSearch,
+            blockName,
+            baseURL,
+            contractAddress,
+            nodeID
+        );
+    }
+
+    //!.....................................
     function fulfillRequest(
         bytes32 requestId,
         bytes memory response,
         bytes memory err
     ) internal override {
         emit newBlockReaded(requestId, response, err);
-        address contractAddress = requests[requestId].contractAddress;
-        IRecipien dataRecipientContract = IRecipien(contractAddress);
-        dataRecipientContract.reciveData(string(response));
+        if (err.length > 0) {
+            address contractAddress = requests[requestId].contractAddress;
+            uint nodeID = requests[requestId].nodeID;
+            IBaseNodes baseOperators = IBaseNodes(BaseOperatorsAddress);
+            baseOperators.updateFuffilledRequest(nodeID);
+
+            IRecipien dataRecipientContract = IRecipien(contractAddress);
+            dataRecipientContract.reciveData(string(response));
+        }
     }
 }

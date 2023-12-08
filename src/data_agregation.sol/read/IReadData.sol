@@ -20,10 +20,16 @@ interface IReadData {
 
     function getCode() external view returns (string memory);
 
+    function updateBaseOperatorsAddress(address newAddress) external;
+
+    function getBaseOperatorsAddress() external view returns (address);
+
     function sendRequest(
         uint64 subscriptionId,
+        string memory fieldToSearch,
         string memory blockName,
         string memory baseURL,
         address contractAddress
+        uint nodeId
     ) external returns (bytes32 requestId);
 }

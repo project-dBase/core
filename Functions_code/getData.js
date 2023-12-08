@@ -1,8 +1,11 @@
 const baseURL = args[0];
 const fieldToSearch = args[1];
+const blockName = args[2];
+
 const apiResponse = await Functions.makeHttpRequest({
-    url: baseURL
+    url: baseURL + "?filter=(Ime='" + blockName + "')",
 });
+
 
 if (apiResponse.error) {
     console.error(apiResponse.error);
