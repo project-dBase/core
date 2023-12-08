@@ -1,0 +1,24 @@
+Ja trebam imati 3 Noda kako bi izvadio podatke
+
+Kako bi se prijavio kao node pozivam funkciju [addNewNode] i šaljem parametre
+Moram založiti 200 dBase tokena kako bi odradio tu funkciju
+
+
+Nakon toga node se dodaje u listu dostupnih nodeOva
+
+lista sadrži
+{
+    Https endpoint
+    adresa vlasnika
+    isActive polje
+    nodeID - neki broj koji upućuje na node
+    broj fufilani requesta
+    staked dBase
+    earned dbase
+}
+
+ne postoji način da se node ikloni. Samo da se deaktivira
+Deaktivirati se može ručno ili automatski
+
+Ukoliko se deaktivira automatski staked dBase se oduzima kompletan
+Ukoliko se deaktivira ručno vraća se korisniku
