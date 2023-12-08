@@ -5,6 +5,8 @@ import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
+import "../../data_storage/IDataStorage.sol";
+
 contract AddNewData is ConfirmedOwner, FunctionsClient {
     using FunctionsRequest for FunctionsRequest.Request;
 
@@ -69,10 +71,10 @@ contract AddNewData is ConfirmedOwner, FunctionsClient {
         string memory sha,
         address ownerAddress
     ) internal {
-        IDataStorageContract dataStorageContract = IDataStorageContract(
+        IDataStorage dataStorageContract = IDataStorage(
             dataStorageContractAddress
         );
-        dataStorageContract.addNewBloc(name, sha, owner);
+        dataStorageContract.addNewBlock(name, sha, ownerAddress);
     }
 
     struct request {
